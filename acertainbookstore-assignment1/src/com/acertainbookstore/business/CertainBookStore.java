@@ -317,7 +317,13 @@ public class CertainBookStore implements BookStore, StockManager {
 	 */
 	@Override
 	public synchronized List<Book> getTopRatedBooks(int numBooks) throws BookStoreException {
-		throw new BookStoreException();
+		if(numBooks <= 0) throw new BookStoreException(BookStoreConstants.NULL_INPUT);
+
+		return bookMap.values().stream()
+			    .sorted((book1, book2) -> Float.compare(book1.getAverageRating(), book2.getAverageRating()))
+				.map(book -> book.immutableStockBook())
+				.limit(numBooks)
+	      		.collect(Collectors.toList());
 	}
 
 	/*
@@ -327,7 +333,11 @@ public class CertainBookStore implements BookStore, StockManager {
 	 */
 	@Override
 	public synchronized List<StockBook> getBooksInDemand() throws BookStoreException {
-		throw new BookStoreException();
+		//Filter any non-zero sale miss books and return the ones which had missed sales
+		return bookMap.values().stream()
+			    .filter(book -> book.getNumSaleMisses() > 0)
+				.map(book -> book.immutableStockBook())
+	      		.collect(Collectors.toList());
 	}
 
 	/*
@@ -337,7 +347,23 @@ public class CertainBookStore implements BookStore, StockManager {
 	 */
 	@Override
 	public synchronized void rateBooks(Set<BookRating> bookRating) throws BookStoreException {
-		throw new BookStoreException();
+		if(bookRating == null) {
+            throw new BookStoreException(BookStoreConstants.NULL_INPUT);
+        }
+
+		// Check whether all books are in the collection.
+		for (BookRating bookRate : bookRating) {
+			validateISBNInStock(bookRate.getISBN());
+			if (bookRate.getRating() < 0 && bookRate.getRating() > 5) {
+				throw new BookStoreException("Invalid rating provided, expected between 0 and 5");
+			}
+		}
+
+		// If all books validated, then perform the ratings (all-or-nothing)
+        for (BookRating bookRate : bookRating) {
+			BookStoreBook book = bookMap.get(bookRate.getISBN());
+			book.addRating(bookRate.getRating());
+        }
 	}
 
 	/*
