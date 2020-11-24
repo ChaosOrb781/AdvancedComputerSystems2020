@@ -354,7 +354,7 @@ public class CertainBookStore implements BookStore, StockManager {
 		// Check whether all books are in the collection.
 		for (BookRating bookRate : bookRating) {
 			validateISBNInStock(bookRate.getISBN());
-			if (bookRate.getRating() < 0 && bookRate.getRating() > 5) {
+			if (bookRate.getRating() < 0 || bookRate.getRating() > 5) {
 				throw new BookStoreException("Invalid rating provided, expected between 0 and 5");
 			}
 		}

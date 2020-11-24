@@ -2,8 +2,10 @@ package com.acertainbookstore.client.tests;
 
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 import org.junit.After;
@@ -14,6 +16,7 @@ import org.junit.Test;
 
 import com.acertainbookstore.business.Book;
 import com.acertainbookstore.business.BookCopy;
+import com.acertainbookstore.business.BookRating;
 import com.acertainbookstore.business.CertainBookStore;
 import com.acertainbookstore.business.ImmutableStockBook;
 import com.acertainbookstore.business.StockBook;
@@ -38,7 +41,7 @@ public class BookStoreTest {
 	private static final int NUM_COPIES = 5;
 
 	/** The local test. */
-	private static boolean localTest = false;
+	private static boolean localTest = true;
 
 	/** The store manager. */
 	private static StockManager storeManager;
@@ -98,6 +101,35 @@ public class BookStoreTest {
 				false);
 	}
 
+	private List knownISBNs = new ArrayList<Integer>();
+	private StockBook instanciateNewBook(String title, String author, float price, int numCopies) {
+		Random rnd = new Random();
+		int randomISBN = rnd.nextInt(10000000);
+		while (knownISBNs.contains(randomISBN)) {
+			randomISBN = rnd.nextInt(10000000);
+		}
+		return new ImmutableStockBook(randomISBN, title, author, price, numCopies, 0, 0, 0, false);
+	}
+
+	public List<StockBook> getDefaultBooks() {
+		List booklist = new ArrayList<StockBook>();
+		booklist.add(getDefaultBook());
+		
+		booklist.add(instanciateNewBook("House of Leaves", "Mark Danielewski", 15, 5));
+		booklist.add(instanciateNewBook("The Great Gatsby", "F.S.Fitzgerald", 5, 4));
+		booklist.add(instanciateNewBook("Invisible Man", "Some One", 20, 5));
+		booklist.add(instanciateNewBook("Alice in Wonderland", "Jacob Smith", 25, 8));
+		booklist.add(instanciateNewBook("The Color Purple", "Mark Daniel.", 15, 5));
+
+		booklist.add(instanciateNewBook("Ulysses", "James Joyce", 17, 3));
+		booklist.add(instanciateNewBook("1984", "George Orwell", 8, 4));
+		booklist.add(instanciateNewBook("The Stranger", "Some One", 22, 8));
+		booklist.add(instanciateNewBook("Among Us", "Jacob the Great", 40, 1));
+		booklist.add(instanciateNewBook("It's raining men", "The Weather Girls", 3, 9));
+		
+		return booklist;
+	}
+
 	/**
 	 * Method to add a book, executed before every test case is run.
 	 *
@@ -107,7 +139,7 @@ public class BookStoreTest {
 	@Before
 	public void initializeBooks() throws BookStoreException {
 		Set<StockBook> booksToAdd = new HashSet<StockBook>();
-		booksToAdd.add(getDefaultBook());
+		booksToAdd.addAll(getDefaultBooks());
 		storeManager.addBooks(booksToAdd);
 	}
 
@@ -130,6 +162,12 @@ public class BookStoreTest {
 	 */
 	@Test
 	public void testBuyAllCopiesDefaultBook() throws BookStoreException {
+		//Reset to only having default book, due to our modified initial state
+		storeManager.removeAllBooks();
+		Set<StockBook> tmp = new HashSet<StockBook>();
+		tmp.add(getDefaultBook());
+		storeManager.addBooks(tmp);
+
 		// Set of books to buy
 		Set<BookCopy> booksToBuy = new HashSet<BookCopy>();
 		booksToBuy.add(new BookCopy(TEST_ISBN, NUM_COPIES));
@@ -271,6 +309,12 @@ public class BookStoreTest {
 	 */
 	@Test
 	public void testGetBooks() throws BookStoreException {
+		//Reset to only having default book, due to our modified initial state
+		storeManager.removeAllBooks();
+		Set<StockBook> tmp = new HashSet<StockBook>();
+		tmp.add(getDefaultBook());
+		storeManager.addBooks(tmp);
+
 		Set<StockBook> booksAdded = new HashSet<StockBook>();
 		booksAdded.add(getDefaultBook());
 
@@ -351,61 +395,127 @@ public class BookStoreTest {
 
 	/** ADDITIONAL TESTING CONDUCTED */
 
-		/**
+	/**
 	 * Test the rate books functionality
-	 * given an invalid ISBN, a book cannot be rated 
+	 * given an invalid ISBN, test if a book cannot be rated 
 	 *
 	 * @throws BookStoreException
 	 *             the book store exception
 	 */
+
+	
 	@Test
 	public void testRateBooksInvalidISBN() throws BookStoreException {
 		List<StockBook> booksInStorePreTest = storeManager.getBooks();
 
-		// Make an invalid ISBN.
-		HashSet<Integer> isbnList = new HashSet<Integer>();
-		isbnList.add(TEST_ISBN); // valid
-		isbnList.add(-1); // invalid
+		HashSet<BookRating> booksToRate = new HashSet<BookRating>();
+		booksToRate.add(new BookRating(TEST_ISBN, 5));
+		booksToRate.add(new BookRating(TEST_ISBN - 1, 4));
 
-		HashSet<BookCopy> booksToRate = new HashSet<BookCopy>();
-		booksToRate.add(new BookCopy(TEST_ISBN, -1));
 
 		try {
 			client.rateBooks(booksToRate);
+			fail();
 		} catch (BookStoreException ex) {
 			;
 		}
-		List<StockBook> booksInStorePostTest = storeManager.getBooks();
-		// Try to rate the books.
 
-		// Check pre and post state are same.
-		assertTrue(booksInStorePreTest.containsAll(booksInStorePostTest)
-				&& booksInStorePreTest.size() == booksInStorePostTest.size());
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+
+		for (int i = 0; i < booksInStorePostTest.size(); i++) {
+			StockBook prebook = booksInStorePreTest.get(i);
+			StockBook postbook = booksInStorePostTest.get(i);
+			assertTrue(prebook.getISBN() == postbook.getISBN() 
+			        && prebook.getTitle().equals(postbook.getTitle())
+					&& prebook.getAuthor().equals(postbook.getAuthor()) 
+					&& prebook.getPrice() == postbook.getPrice()
+					&& prebook.getNumSaleMisses() == postbook.getNumSaleMisses()
+					&& prebook.getAverageRating() == postbook.getAverageRating()
+					&& prebook.getNumTimesRated() == postbook.getNumTimesRated()
+					&& prebook.getTotalRating() == postbook.getTotalRating()
+					&& prebook.isEditorPick() == postbook.isEditorPick());
+		}
 	}
+
+
+
+	/**
+	 * Test the rate books functionality
+	 * given a negative rating for a book that is in the collection, tests if a book cannot be rated 
+	 *
+	 * @throws BookStoreException
+	 *             the book store exception
+	 */
+
+	
 	@Test
 	public void testRateBooksInvalidRating() throws BookStoreException {
 		List<StockBook> booksInStorePreTest = storeManager.getBooks();
 
-		Set<BookRating> bookRatings = new HashSet<>();
-		BookRating bookRating = new BookRating(TEST_ISBN,4); //valid
-		BookRating bookRating2 = new BookRating(TEST_ISBN,-1); //invalid
-		bookRatings.add(bookRating, bookRatings2);
-		storeManager.updateEditorPicks(editorPicks);
+		HashSet<BookRating> booksToRate = new HashSet<BookRating>();
+		Random rnd = new Random();
+		for (int i = 0; i < booksInStorePreTest.size() - 1; i++) {
+			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(6)));
+		}
+		int lastIndex = booksInStorePreTest.size() - 1;
+		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), -1));
 
-		HashSet<BookCopy> booksToRate = new HashSet<BookCopy>();
-		booksToRate.add(new BookCopy(TEST_ISBN, -1));
 
 		try {
 			client.rateBooks(booksToRate);
+			fail();
 		} catch (BookStoreException ex) {
 			;
 		}
-		List<StockBook> booksInStorePostTest = storeManager.getBooks();
-		// Try to rate the books.
 
-		// Check pre and post state are same.
-		assertTrue(booksInStorePreTest.containsAll(booksInStorePostTest)
-				&& booksInStorePreTest.size() == booksInStorePostTest.size());
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+
+		for (int i = 0; i < booksInStorePostTest.size(); i++) {
+			StockBook prebook = booksInStorePreTest.get(i);
+			StockBook postbook = booksInStorePostTest.get(i);
+			assertTrue(prebook.getISBN() == postbook.getISBN() 
+			        && prebook.getTitle().equals(postbook.getTitle())
+					&& prebook.getAuthor().equals(postbook.getAuthor()) 
+					&& prebook.getPrice() == postbook.getPrice()
+					&& prebook.getNumSaleMisses() == postbook.getNumSaleMisses()
+					&& prebook.getAverageRating() == postbook.getAverageRating()
+					&& prebook.getNumTimesRated() == postbook.getNumTimesRated()
+					&& prebook.getTotalRating() == postbook.getTotalRating()
+					&& prebook.isEditorPick() == postbook.isEditorPick());
+		}
+	}
+
+	
+
+
+	@Test
+	public void testBuyThroughly() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+
+		// Set of books to buy
+		Set<BookCopy> booksToBuy = new HashSet<BookCopy>();
+		for (int i = 0; i < booksInStorePreTest.size(); i++) {
+			booksToBuy.add(new BookCopy(booksInStorePreTest.get(0).getISBN(), 1));
+		}
+
+		// Try to buy books
+		client.buyBooks(booksToBuy);
+
+
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+		for (int i = 0; i < booksInStorePostTest.size(); i++) {
+			StockBook prebook = booksInStorePreTest.get(i);
+			StockBook postbook = booksInStorePostTest.get(i);
+			assertTrue(prebook.getISBN() == postbook.getISBN() 
+					&& prebook.getTitle().equals(postbook.getTitle())
+					&& prebook.getAuthor().equals(postbook.getAuthor()) 
+					&& prebook.getPrice() == postbook.getPrice()
+					&& prebook.getNumSaleMisses() == postbook.getNumSaleMisses()
+					&& prebook.getAverageRating() == postbook.getAverageRating()
+					&& prebook.getNumTimesRated() == postbook.getNumTimesRated()
+					&& prebook.getTotalRating() == postbook.getTotalRating()
+					&& prebook.isEditorPick() == postbook.isEditorPick());
+		}
 	}
 
 	/**
