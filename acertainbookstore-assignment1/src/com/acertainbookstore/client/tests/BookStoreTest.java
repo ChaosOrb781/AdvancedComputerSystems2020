@@ -349,6 +349,65 @@ public class BookStoreTest {
 				&& booksInStorePreTest.size() == booksInStorePostTest.size());
 	}
 
+	/** ADDITIONAL TESTING CONDUCTED */
+
+		/**
+	 * Test the rate books functionality
+	 * given an invalid ISBN, a book cannot be rated 
+	 *
+	 * @throws BookStoreException
+	 *             the book store exception
+	 */
+	@Test
+	public void testRateBooksInvalidISBN() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+
+		// Make an invalid ISBN.
+		HashSet<Integer> isbnList = new HashSet<Integer>();
+		isbnList.add(TEST_ISBN); // valid
+		isbnList.add(-1); // invalid
+
+		HashSet<BookCopy> booksToRate = new HashSet<BookCopy>();
+		booksToRate.add(new BookCopy(TEST_ISBN, -1));
+
+		try {
+			client.rateBooks(booksToRate);
+		} catch (BookStoreException ex) {
+			;
+		}
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+		// Try to rate the books.
+
+		// Check pre and post state are same.
+		assertTrue(booksInStorePreTest.containsAll(booksInStorePostTest)
+				&& booksInStorePreTest.size() == booksInStorePostTest.size());
+	}
+	@Test
+	public void testRateBooksInvalidRating() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+
+		Set<BookRating> bookRatings = new HashSet<>();
+		BookRating bookRating = new BookRating(TEST_ISBN,4); //valid
+		BookRating bookRating2 = new BookRating(TEST_ISBN,-1); //invalid
+		bookRatings.add(bookRating, bookRatings2);
+		storeManager.updateEditorPicks(editorPicks);
+
+		HashSet<BookCopy> booksToRate = new HashSet<BookCopy>();
+		booksToRate.add(new BookCopy(TEST_ISBN, -1));
+
+		try {
+			client.rateBooks(booksToRate);
+		} catch (BookStoreException ex) {
+			;
+		}
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+		// Try to rate the books.
+
+		// Check pre and post state are same.
+		assertTrue(booksInStorePreTest.containsAll(booksInStorePostTest)
+				&& booksInStorePreTest.size() == booksInStorePostTest.size());
+	}
+
 	/**
 	 * Tear down after class.
 	 *
