@@ -131,14 +131,12 @@ public class BookStoreHTTPMessageHandler extends AbstractHandler {
 				getStockBooksByISBN(request, response);
 				break;
 
-			/* Addition */
+			/* Additions */
 			case RATEBOOKS:
-				System.out.println("Got a rate book request");
 				rateBooks(request, response);
 				break;
 
 			case GETTOPRATEDBOOKS:
-				System.out.println("Got a get top rated books request");
 				getTopRatedBooks(request, response);
 				break;
 

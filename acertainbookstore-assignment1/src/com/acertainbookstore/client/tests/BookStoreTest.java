@@ -44,7 +44,7 @@ public class BookStoreTest {
 	private static final int NUM_COPIES = 5;
 
 	/** The local test. */
-	private static boolean localTest = true;
+	private static boolean localTest = false;
 
 	/** The store manager. */
 	private static StockManager storeManager;
@@ -104,7 +104,7 @@ public class BookStoreTest {
 				false);
 	}
 
-	private List knownISBNs = new ArrayList<Integer>();
+	private List<Integer> knownISBNs = new ArrayList<Integer>();
 	private StockBook instanciateNewBook(String title, String author, float price, int numCopies, boolean editorsPick) {
 		Random rnd = new Random();
 		int randomISBN = rnd.nextInt(10000000);
@@ -116,7 +116,7 @@ public class BookStoreTest {
 
 	//Add 11 books, 4 of which are editors choice
 	public List<StockBook> getDefaultBooks() {
-		List booklist = new ArrayList<StockBook>();
+		List<StockBook> booklist = new ArrayList<StockBook>();
 		booklist.add(getDefaultBook());
 		
 		booklist.add(instanciateNewBook("House of Leaves", "Mark Danielewski", 15, 5, false));
