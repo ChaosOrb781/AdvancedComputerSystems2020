@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
+import javax.lang.model.util.ElementScanner14;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -42,7 +44,7 @@ public class BookStoreTest {
 	private static final int NUM_COPIES = 5;
 
 	/** The local test. */
-	private static boolean localTest = true;
+	private static boolean localTest = false;
 
 	/** The store manager. */
 	private static StockManager storeManager;
@@ -102,7 +104,7 @@ public class BookStoreTest {
 				false);
 	}
 
-	private List knownISBNs = new ArrayList<Integer>();
+	private List<Integer> knownISBNs = new ArrayList<Integer>();
 	private StockBook instanciateNewBook(String title, String author, float price, int numCopies, boolean editorsPick) {
 		Random rnd = new Random();
 		int randomISBN = rnd.nextInt(10000000);
@@ -114,7 +116,7 @@ public class BookStoreTest {
 
 	//Add 11 books, 4 of which are editors choice
 	public List<StockBook> getDefaultBooks() {
-		List booklist = new ArrayList<StockBook>();
+		List<StockBook> booklist = new ArrayList<StockBook>();
 		booklist.add(getDefaultBook());
 		
 		booklist.add(instanciateNewBook("House of Leaves", "Mark Danielewski", 15, 5, false));
@@ -643,7 +645,7 @@ public class BookStoreTest {
 		}
 
 		//Check if "Among us" is now empty
-		Optional<StockBook> amongus = booksInStorePostTest.stream().filter(book -> book.getTitle() == "Among Us").findFirst();
+		Optional<StockBook> amongus = booksInStorePostTest.stream().filter(book -> book.getTitle().equals("Among Us")).findFirst();
 		assertTrue(amongus.isPresent());
 		assertTrue(amongus.get().getNumCopies() == 0);
 
@@ -665,12 +667,16 @@ public class BookStoreTest {
 		for (int i = 0; i < booksInStorePostTest.size(); i++) {
 			StockBook prebook = booksInStorePreTest.get(i);
 			StockBook postbook = booksInStorePostTest.get(i);
+			if (prebook.getTitle().equals("Among Us")) {
+				assertTrue(prebook.getNumSaleMisses() == postbook.getNumSaleMisses() - 1);
+			} else {
+				assertTrue(prebook.getNumSaleMisses() == postbook.getNumSaleMisses());
+			}
 			assertTrue(prebook.getISBN() == postbook.getISBN() 
 			        && prebook.getTitle().equals(postbook.getTitle())
 					&& prebook.getAuthor().equals(postbook.getAuthor()) 
 					&& prebook.getPrice() == postbook.getPrice()
 					&& prebook.getNumCopies() == postbook.getNumCopies()
-					&& prebook.getNumSaleMisses() == postbook.getNumSaleMisses()
 					&& prebook.getAverageRating() == postbook.getAverageRating()
 					&& prebook.getNumTimesRated() == postbook.getNumTimesRated()
 					&& prebook.getTotalRating() == postbook.getTotalRating()
@@ -682,9 +688,52 @@ public class BookStoreTest {
 	@Test
 	public void testEditorsPickThroughly() throws BookStoreException {
 		// Check if there is non in the current set of default books added to the storeManager
-		List<Book> defaulteditorspicks = client.getEditorPicks(1);
+		List<Book> defaulteditorspicks = client.getEditorPicks(10);
 
+		// All the titles of the editor picks books from the default set
+		List<String> editorPicksTitles = new ArrayList<String>();
+		editorPicksTitles.add("The Stranger");
+		editorPicksTitles.add("The Color Purple");
+		editorPicksTitles.add("Invisible Man");
+		editorPicksTitles.add("The Great Gatsby");
 
+		//Check if all the editor picks books are in the list from the bookstore
+		assertTrue(defaulteditorspicks.stream()
+					.allMatch(x -> editorPicksTitles.contains(x.getTitle())));
+
+		//Test with K = 1,2,3,4:
+		for (int K = 1; K <= 4; K++) {
+			defaulteditorspicks = client.getEditorPicks(K);
+			//Check expected amount returned
+			assertTrue(defaulteditorspicks.size() == K);
+			//Check to see if they are in editor set, as it is randomly picked
+			//then no ordering can be predicted
+			assertTrue(defaulteditorspicks.stream()
+					.allMatch(x -> editorPicksTitles.contains(x.getTitle())));
+		}
+
+		Random rnd = new Random();
+
+		//Cannot fetch negative features
+		for (int i = 0; i < 1000; i++) {
+			//Get some random negative K (add one to not have == 0)
+			int K = -(rnd.nextInt(1000000) + 1);
+			try {
+				client.getEditorPicks(K);
+				fail();
+			} catch (BookStoreException ex) {
+				;
+			}
+		}
+
+		//Zero editor picks books should be valid
+		defaulteditorspicks = client.getEditorPicks(0);
+		assertTrue(defaulteditorspicks.size() == 0);
+
+		//Remove all books, then check if we can get any
+		storeManager.removeAllBooks();
+		defaulteditorspicks = client.getEditorPicks(10);
+		assertTrue(defaulteditorspicks.size() == 0);
 	}
 
 	/**
