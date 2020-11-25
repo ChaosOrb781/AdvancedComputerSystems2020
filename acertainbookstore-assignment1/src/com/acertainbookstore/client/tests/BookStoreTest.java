@@ -503,26 +503,29 @@ public class BookStoreTest {
 		HashSet<BookRating> booksToRate = new HashSet<BookRating>();
 		Random rnd = new Random();
 		for (int i = 0; i < booksInStorePreTest.size() - 1; i++) {
-			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(6)));
+			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(5)+1));
 		}
 		int lastIndex = booksInStorePreTest.size() - 1;
 
-		int avg1 = rnd.nextInt(6);
-		int avg2 = rnd.nextInt(6);
+		int avg1 = rnd.nextInt(5)+1;
+		int avg2 = rnd.nextInt(5)+1;
 		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg1)); //rate the last book twice for the avg. calc.
 		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg2));
 
-		try {
-			client.rateBooks(booksToRate);
-			//fail();
-		} catch (BookStoreException ex) {
-			;
-		}
+		client.rateBooks(booksToRate);
+
 		//Add the valid ratings, test the mean rating
 		List<StockBook> booksInStorePostTest = storeManager.getBooks();
 		StockBook lastPre = booksInStorePreTest.get(booksInStorePostTest.size()-1);
 		StockBook lastPost = booksInStorePostTest.get(booksInStorePostTest.size()-1);
-		assertTrue (lastPost.getAverageRating() == (float) (avg1+avg2) / 2.0f
+		System.out.println("HEY");
+		System.out.println(avg1);
+		System.out.println(avg2);
+		System.out.println(lastPost.getAverageRating());
+		System.out.println(lastPost.getTotalRating());
+		System.out.println((int) (avg1+avg2) / 2.0f);
+
+		assertTrue (lastPost.getAverageRating() == (int) (avg1+avg2) / 2.0f
 				&& lastPre.getNumTimesRated()+2 == lastPost.getNumTimesRated()
 				&& lastPre.getISBN() == lastPost.getISBN() 
 				&& lastPre.getTitle().equals(lastPost.getTitle())
@@ -531,10 +534,12 @@ public class BookStoreTest {
 				&& lastPre.getNumSaleMisses() == lastPost.getNumSaleMisses()
 				&& lastPre.getTotalRating() == lastPost.getTotalRating()-(avg1+avg2)
 				&& lastPre.isEditorPick() == lastPost.isEditorPick()); //assert average rating validity
-
+		
 		for (int i = 0; i < booksInStorePostTest.size()-1; i++) {
 			StockBook prebook = booksInStorePreTest.get(i);
 			StockBook postbook = booksInStorePostTest.get(i);
+			System.out.println("Hey");
+			System.out.println(postbook.getTotalRating());
 			assertTrue(prebook.getISBN() == postbook.getISBN() 
 			        && prebook.getTitle().equals(postbook.getTitle())
 					&& prebook.getAuthor().equals(postbook.getAuthor()) 
@@ -547,8 +552,64 @@ public class BookStoreTest {
 		}
 	}
 
-	
+	/**
+	 * Test get K-top rated books with a valid K
+	 *
+	 *
+	 * @throws BookStoreException
+	 *             the book store exception
+	 */
+	@Test
+	public void testGetTopRatedValid() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+		int KBooks = 5;
 
+		HashSet<BookRating> booksToRate = new HashSet<BookRating>();
+		Random rnd = new Random();
+		//add a random rating to the books 1-4
+		for (int i = 0; i < booksInStorePreTest.size()-1; i++) {
+			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(4)+1));
+		}
+		int lastIndex = booksInStorePreTest.size()-1;
+		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), 5)); //rate the last book as the highest rated book
+		//System.out.println(booksToRate);
+		client.rateBooks(booksToRate);
+		List<Book> list = client.getTopRatedBooks(KBooks);
+
+		//System.out.println(list);
+		//System.out.println(booksInStorePreTest.get(lastIndex).getTotalRating());
+		assertTrue(booksInStorePreTest.containsAll(list)
+					&& list.size() == KBooks
+					&& list.contains(booksInStorePreTest.get(lastIndex)));
+	}
+
+	/**
+	 * Test get K-top rated books with an invalid K
+	 *
+	 *
+	 * @throws BookStoreException
+	 *             the book store exception
+	 */
+	@Test
+	public void testGetTopRatedInvalid() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+		int KBooks = -5;
+
+		HashSet<BookRating> booksToRate = new HashSet<BookRating>();
+		Random rnd = new Random();
+		//add a random rating to the books
+		for (int i = 0; i < booksInStorePreTest.size(); i++) {
+			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(5)+1));
+		}
+		client.rateBooks(booksToRate);
+		
+		try {
+			client.getTopRatedBooks(KBooks);
+			fail();
+		} catch (BookStoreException ex) {
+			;
+		}
+	}
 
 	@Test
 	public void testBuyThroughly() throws BookStoreException {
