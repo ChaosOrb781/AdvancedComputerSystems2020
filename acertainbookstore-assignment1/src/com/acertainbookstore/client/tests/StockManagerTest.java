@@ -122,7 +122,7 @@ public class StockManagerTest {
 	@Before
 	public void initializeBooks() throws BookStoreException {
 		Set<StockBook> booksToAdd = new HashSet<StockBook>();
-		booksToAdd.add(getDefaultBook());
+		booksToAdd.addAll(getDefaultBooks());
 
 		storeManager.addBooks(booksToAdd);
 	}
@@ -149,10 +149,14 @@ public class StockManagerTest {
 		List<StockBook> addedBooks = new ArrayList<StockBook>();
 		addedBooks.addAll(getDefaultBooks());
 
-		List<StockBook> listBooks = null;
-		listBooks = storeManager.getBooks();
+		List<StockBook> listBooks = storeManager.getBooks();
 
-		assertTrue(addedBooks.containsAll(listBooks) && addedBooks.size() == listBooks.size());
+		assertTrue(addedBooks.size() == listBooks.size()
+				&& listBooks.stream()
+					  .map(book -> book.getTitle())
+					  .allMatch(title -> 
+							  addedBooks.stream().anyMatch(book -> book.getTitle().equals(title))
+					  ));
 	}
 
 	/**
@@ -396,23 +400,22 @@ public class StockManagerTest {
 	 *             the book store exception
 	 */
 	@Test
-	public void testDefaultBookForEditorsPick() throws BookStoreException {
+	public void testDefaultBooksForEditorsPick() throws BookStoreException {
 
 		// The default book should not be an editor pick.
-		List<Book> editorPicks = client.getEditorPicks(1);
-		assertEquals(editorPicks.size(), 0);
+		List<Book> editorPicks = client.getEditorPicks(10);
+		assertEquals(editorPicks.size(), 4);
 
 		// Add an editor pick.
 		addEditorPick(TEST_ISBN, true);
 
 		// Check that it is there.
-		List<Book> editorPicksLists = client.getEditorPicks(1);
-		assertTrue(editorPicksLists.size() == 1);
+		List<Book> editorPicksLists = client.getEditorPicks(10);
+		assertTrue(editorPicksLists.size() == 5);
 
 		Book defaultBookAdded = getDefaultBook();
-		Book editorPick = editorPicksLists.get(0);
 
-		assertTrue(editorPick.equals(defaultBookAdded));
+		assertTrue(editorPicksLists.contains(defaultBookAdded));
 	}
 
 	/**
@@ -441,7 +444,8 @@ public class StockManagerTest {
 		storeManager.addBooks(booksToAdd);
 
 		List<StockBook> booksInStoreList = storeManager.getBooks();
-		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == booksAdded.size());
+		// - 1 on books added as we have a dublicate isbn
+		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == getDefaultBooks().size() + booksAdded.size() - 1);
 
 		Set<Integer> isbnSet = new HashSet<Integer>();
 		isbnSet.add(TEST_ISBN);
@@ -456,7 +460,7 @@ public class StockManagerTest {
 
 		// Check that the books were removed.
 		booksInStoreList = storeManager.getBooks();
-		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == booksAdded.size());
+		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == getDefaultBooks().size() + booksAdded.size() - 1);
 	}
 
 	@Test
@@ -479,7 +483,7 @@ public class StockManagerTest {
 		storeManager.addBooks(booksToAdd);
 
 		List<StockBook> booksInStoreList = storeManager.getBooks();
-		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == booksAdded.size());
+		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == getDefaultBooks().size() + booksAdded.size() - 1);
 
 		Set<Integer> isbnSet = new HashSet<Integer>();
 		isbnSet.add(TEST_ISBN);
@@ -497,7 +501,7 @@ public class StockManagerTest {
 
 		// Check to see that no books where removed as consequence
 		booksInStoreList = storeManager.getBooks();
-		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == booksAdded.size());
+		assertTrue(booksInStoreList.containsAll(booksAdded) && booksInStoreList.size() == getDefaultBooks().size() + booksAdded.size() - 1);
 	}
 
 	/**
@@ -539,7 +543,7 @@ public class StockManagerTest {
 		storeManager.addBooks(booksToAdd);
 
 		List<StockBook> booksInStoreList = storeManager.getBooks();
-		assertTrue(booksInStoreList.size() == 3);
+		assertTrue(booksInStoreList.size() == 13);
 
 		storeManager.removeAllBooks();
 
@@ -572,6 +576,55 @@ public class StockManagerTest {
 		} catch (BookStoreException ex) {
 			;
 		}
+	}
+
+	@Test
+	public void testBooksInDemand() throws BookStoreException {
+		List<StockBook> booksInStorePreTest = storeManager.getBooks();
+
+		//No salesmisses initially
+		assertTrue(booksInStorePreTest.stream().allMatch(book -> book.getNumSaleMisses() == 0));
+
+		//Buy 1, 2, 3, 4 more than number of copies of the first 4 books (0,1,2,3)
+		HashSet<BookCopy> booksToBuy = new HashSet<BookCopy>();
+		for (int i = 0; i < 4; i++) {
+			StockBook book = booksInStorePreTest.get(i);
+			booksToBuy.add(new BookCopy(book.getISBN(), book.getNumCopies() + i + 1));
+		}
+		
+		try {
+			client.buyBooks(booksToBuy);
+			fail();
+		}
+		catch (BookStoreException ex) {
+			;
+		}
+
+		try {
+			Thread.sleep(500);
+		}
+		catch (Exception ex) {
+			;
+		}
+
+		List<StockBook> booksInStorePostTest = storeManager.getBooks();
+
+		//Check if the first 4 books has correct salesmisses
+		for (int i = 0; i < 4; i++) {
+			StockBook book = booksInStorePostTest.get(i);
+			assertTrue(book.getNumSaleMisses() == i + 1);
+		}
+
+		//Check if rest has zero misses
+		for (int i = 4; i < booksInStorePostTest.size(); i++) {
+			StockBook book = booksInStorePostTest.get(i);
+			assertTrue(book.getNumSaleMisses() == 0);
+		}
+
+		List<StockBook> indemand = storeManager.getBooksInDemand();
+
+		assertTrue(indemand.size() == 4
+		        && indemand.stream().mapToLong(m -> m.getNumSaleMisses()).allMatch(i -> i >= 1 && i <= 4));
 	}
 
 	/**

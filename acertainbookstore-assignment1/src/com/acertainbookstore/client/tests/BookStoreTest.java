@@ -510,22 +510,19 @@ public class BookStoreTest {
 		int lastIndex = booksInStorePreTest.size() - 1;
 
 		int avg1 = rnd.nextInt(5)+1;
-		int avg2 = rnd.nextInt(5)+1;
-		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg1)); //rate the last book twice for the avg. calc.
-		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg2));
+		BookRating last = new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg1);
+		booksToRate.add(last); //rate the last book twice for the avg. calc.
+		client.rateBooks(booksToRate);
 
+		int avg2 = rnd.nextInt(5)+1;
+		booksToRate.remove(last);
+		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), avg2));
 		client.rateBooks(booksToRate);
 
 		//Add the valid ratings, test the mean rating
 		List<StockBook> booksInStorePostTest = storeManager.getBooks();
 		StockBook lastPre = booksInStorePreTest.get(booksInStorePostTest.size()-1);
 		StockBook lastPost = booksInStorePostTest.get(booksInStorePostTest.size()-1);
-		System.out.println("HEY");
-		System.out.println(avg1);
-		System.out.println(avg2);
-		System.out.println(lastPost.getAverageRating());
-		System.out.println(lastPost.getTotalRating());
-		System.out.println((int) (avg1+avg2) / 2.0f);
 
 		assertTrue (lastPost.getAverageRating() == (int) (avg1+avg2) / 2.0f
 				&& lastPre.getNumTimesRated()+2 == lastPost.getNumTimesRated()
@@ -548,7 +545,7 @@ public class BookStoreTest {
 					&& prebook.getPrice() == postbook.getPrice()
 					&& prebook.getNumSaleMisses() == postbook.getNumSaleMisses()
 					&& prebook.getAverageRating() != postbook.getAverageRating()
-					&& prebook.getNumTimesRated()+1 == postbook.getNumTimesRated()
+					&& prebook.getNumTimesRated()+2 == postbook.getNumTimesRated()
 					&& prebook.getTotalRating() <= postbook.getTotalRating()
 					&& prebook.isEditorPick() == postbook.isEditorPick());
 		}
@@ -573,9 +570,16 @@ public class BookStoreTest {
 			booksToRate.add(new BookRating(booksInStorePreTest.get(i).getISBN(), rnd.nextInt(4)+1));
 		}
 		int lastIndex = booksInStorePreTest.size()-1;
-		booksToRate.add(new BookRating(booksInStorePreTest.get(lastIndex).getISBN(), 5)); //rate the last book as the highest rated book
+		int lastISBN = booksInStorePreTest.get(lastIndex).getISBN();
+		booksToRate.add(new BookRating(lastISBN, 5)); //rate the last book as the highest rated book
 		//System.out.println(booksToRate);
 		client.rateBooks(booksToRate);
+		try {
+			Thread.sleep(500);
+		}
+		catch (Exception ex) {
+			;
+		}
 		List<Book> list = client.getTopRatedBooks(KBooks);
 
 		//System.out.println(list);

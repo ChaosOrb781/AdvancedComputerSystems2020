@@ -2,6 +2,7 @@ package com.acertainbookstore.business;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -320,7 +321,8 @@ public class CertainBookStore implements BookStore, StockManager {
 		if(numBooks <= 0) throw new BookStoreException(BookStoreConstants.NULL_INPUT);
 
 		return bookMap.values().stream()
-			    .sorted((book1, book2) -> Float.compare(book1.getAverageRating(), book2.getAverageRating()))
+				.sequential()
+				.sorted((book1, book2) -> Float.compare(book2.getAverageRating(), book1.getAverageRating()))
 				.map(book -> book.immutableStockBook())
 				.limit(numBooks)
 	      		.collect(Collectors.toList());
