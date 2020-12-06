@@ -46,7 +46,53 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 	private SimpleEntry<ReadWriteLock, BookStoreBook> BundleBookAndLock(BookStoreBook book) {
 		return new SimpleEntry<>(new ReentrantReadWriteLock(), book);
 	}
-	
+
+	private void ReadLockByISBN(Integer isbn) {
+		if (bookMap.containsKey(isbn))
+			bookMap.get(isbn).getKey().readLock().lock();
+	}
+
+	private void ReadUnlockByISBN(Integer isbn) {
+		if (bookMap.containsKey(isbn))
+		{
+			try {
+				bookMap.get(isbn).getKey().readLock().unlock();
+			} catch (IllegalMonitorStateException ex) {
+				System.out.println("Warning: " + Thread.currentThread().getName() + " attempted to unlock a lock it did not hold.");
+			}
+		}
+	}
+
+	private void ReadUnlockByISBN(Iterable<Integer> isbns) {
+		isbns.forEach(isbn -> ReadUnlockByISBN(isbn));
+	}
+
+	private void WriteLockByISBN(Integer isbn) {
+		if (bookMap.containsKey(isbn))
+			bookMap.get(isbn).getKey().writeLock().lock();
+	}
+
+	private void WriteUnlockByISBN(Integer isbn) {
+		if (bookMap.containsKey(isbn)) {
+			try {
+				bookMap.get(isbn).getKey().writeLock().unlock();
+			} catch (IllegalMonitorStateException ex) {
+				System.out.println("Warning: " + Thread.currentThread().getName() + " attempted to unlock a lock it did not hold.");
+			}
+		}
+	}
+
+	private void WriteUnlockByISBN(Iterable<Integer> isbns) {
+		isbns.forEach(isbn -> 
+		{
+			try {
+				WriteUnlockByISBN(isbn);
+			} catch (IllegalMonitorStateException ex) {
+				System.out.println("Thread attempted to unlock something it did not hold.");
+			}
+		});
+	}
+
 	private void validate(StockBook book) throws BookStoreException {
 		int isbn = book.getISBN();
 		String bookTitle = book.getTitle();
@@ -117,9 +163,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 
 		BookStoreException exception = null;
 
-		//Validation and adding the books utilize same exclusive lock
-		//as there are no garrentees that something might mutate the bookMap
-		//between validation to putting the books in.
+		//Already correct from singlelock, as it inserts elements
 		globalLock.writeLock().lock();
 		try {
 			// Check if all are there
@@ -157,29 +201,27 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 
 		BookStoreException exception = null;
 
-		//Validation and adding the books utilize same exclusive lock
-		//as there are no garrentees that something might mutate the bookMap
-		//between validation to putting the books in.
-		globalLock.writeLock().lock();
+		//Works as intension lock, this mutates entries, therefore do not exclusive lock
+		globalLock.readLock().lock();
 		try {
 			for (BookCopy bookCopy : bookCopiesSet) {
+				//As it is a set, the same thread cannot lock the same isbn.
+				WriteLockByISBN(bookCopy.getISBN());
 				validate(bookCopy);
 			}
-			
-			BookStoreBook book;
 			
 			// Update the number of copies
 			for (BookCopy bookCopy : bookCopiesSet) {
 				isbn = bookCopy.getISBN();
 				numCopies = bookCopy.getNumCopies();
-				book = bookMap.get(isbn).getValue();
-				book.addCopies(numCopies);
+				bookMap.get(isbn).getValue().addCopies(numCopies);
 			}
 		} catch (BookStoreException ex) {
 			exception = ex;
 		// Finally is always called after either try has finished or the catch
 		} finally {
-			globalLock.writeLock().unlock();
+			WriteUnlockByISBN(bookCopiesSet.stream().map(bookCopy -> bookCopy.getISBN()).collect(Collectors.toList()));
+			globalLock.readLock().unlock();
 		}
 		if (exception != null)
 			throw exception;
