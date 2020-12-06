@@ -186,15 +186,13 @@ public class SingleLockConcurrentCertainBookStore implements BookStore, StockMan
 	 * @see com.acertainbookstore.interfaces.StockManager#getBooks()
 	 */
 	public List<StockBook> getBooks() {
-		Collection<BookStoreBook> bookMapValues = bookMap.values();
-
 		List<StockBook> returnVal;
 
 		//Safe for reading
 		globalLock.readLock().lock();
 		try {
 			returnVal = 
-			    bookMapValues.stream()
+				bookMap.values().stream()
 					.map(book -> book.immutableStockBook())
 					.collect(Collectors.toList());
 		} finally {
