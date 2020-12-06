@@ -9,8 +9,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
-import javax.lang.model.util.ElementScanner14;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -74,24 +72,6 @@ public class BookStoreTest {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	/**
-	 * Helper method to add some books.
-	 *
-	 * @param isbn
-	 *            the isbn
-	 * @param copies
-	 *            the copies
-	 * @throws BookStoreException
-	 *             the book store exception
-	 */
-	public void addBooks(int isbn, int copies) throws BookStoreException {
-		Set<StockBook> booksToAdd = new HashSet<StockBook>();
-		StockBook book = new ImmutableStockBook(isbn, "Test of Thrones", "George RR Testin'", (float) 10, copies, 0, 0,
-				0, false);
-		booksToAdd.add(book);
-		storeManager.addBooks(booksToAdd);
 	}
 
 	/**
@@ -537,8 +517,6 @@ public class BookStoreTest {
 		for (int i = 0; i < booksInStorePostTest.size()-1; i++) {
 			StockBook prebook = booksInStorePreTest.get(i);
 			StockBook postbook = booksInStorePostTest.get(i);
-			System.out.println("Hey");
-			System.out.println(postbook.getTotalRating());
 			assertTrue(prebook.getISBN() == postbook.getISBN() 
 			        && prebook.getTitle().equals(postbook.getTitle())
 					&& prebook.getAuthor().equals(postbook.getAuthor()) 

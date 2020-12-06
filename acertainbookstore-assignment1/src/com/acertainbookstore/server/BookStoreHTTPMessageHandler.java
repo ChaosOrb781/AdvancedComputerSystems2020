@@ -444,7 +444,6 @@ public class BookStoreHTTPMessageHandler extends AbstractHandler {
 	 * @throws IOException
 	 *             Signals that an I/O exception has occurred.
 	 */
-	@SuppressWarnings("unchecked")
 	private void getTopRatedBooks(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String numBooksString = URLDecoder.decode(request.getParameter(BookStoreConstants.BOOK_NUM_PARAM), StandardCharsets.UTF_8);
 		BookStoreResponse bookStoreResponse = new BookStoreResponse();
@@ -470,7 +469,6 @@ public class BookStoreHTTPMessageHandler extends AbstractHandler {
 	 * @throws IOException
 	 *             Signals that an I/O exception has occurred.
 	 */
-	@SuppressWarnings("unchecked")
 	private void getBooksInDemand(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		BookStoreResponse bookStoreResponse = new BookStoreResponse();
 

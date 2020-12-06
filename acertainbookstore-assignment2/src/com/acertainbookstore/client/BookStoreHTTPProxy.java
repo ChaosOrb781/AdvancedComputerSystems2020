@@ -1,6 +1,5 @@
 package com.acertainbookstore.client;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -152,7 +151,6 @@ public class BookStoreHTTPProxy implements BookStore {
 	 * 
 	 * @see com.acertainbookstore.interfaces.BookStore#rateBooks(java.util.Set)
 	 */
-	@SuppressWarnings("unchecked")
 	public void rateBooks(Set<BookRating> bookRating) throws BookStoreException {
 		String urlString = serverAddress + "/" + BookStoreMessageTag.RATEBOOKS;
 		BookStoreRequest bookStoreRequest = BookStoreRequest.newPostRequest(urlString, bookRating);

@@ -1,13 +1,9 @@
 package com.acertainbookstore.business;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.Random;
@@ -161,14 +157,11 @@ public class SingleLockConcurrentCertainBookStore implements BookStore, StockMan
 				validate(bookCopy);
 			}
 			
-			BookStoreBook book;
-			
 			// Update the number of copies
 			for (BookCopy bookCopy : bookCopiesSet) {
 				isbn = bookCopy.getISBN();
 				numCopies = bookCopy.getNumCopies();
-				book = bookMap.get(isbn);
-				book.addCopies(numCopies);
+				bookMap.get(isbn).addCopies(numCopies);
 			}
 		} catch (BookStoreException ex) {
 			exception = ex;
@@ -253,7 +246,6 @@ public class SingleLockConcurrentCertainBookStore implements BookStore, StockMan
 
 		Map<Integer, Integer> salesMisses = new HashMap<>();
 
-		
 		BookStoreException exception = null;
 
 		//Writelock required to have consistancy between validation and write phase

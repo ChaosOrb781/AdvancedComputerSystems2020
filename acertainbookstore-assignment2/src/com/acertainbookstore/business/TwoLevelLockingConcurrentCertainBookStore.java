@@ -1,14 +1,9 @@
 package com.acertainbookstore.business;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.Random;
@@ -265,11 +260,13 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 		//Safe for reading
 		globalLock.readLock().lock();
 		try {
+			ReadLockAll();
 			returnVal = 
 				bookMap.values().stream()
 					.map(book -> book.getValue().immutableStockBook())
 					.collect(Collectors.toList());
 		} finally {
+			ReadUnlockAll();
 			globalLock.readLock().unlock();
 		}
 		return returnVal;
@@ -337,7 +334,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 			for (BookCopy bookCopyToBuy : bookCopiesToBuy) {
 				isbn = bookCopyToBuy.getISBN();
 				
-				WriteLockByISBN(bookCopyToBuy.getISBN());
+				WriteLockByISBN(isbn);
 				validate(bookCopyToBuy);
 				
 				book = bookMap.get(isbn).getValue();
@@ -628,7 +625,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 
 		BookStoreException exception = null;
 
-		//Already fine as it requires all intension locks gone
+		//Already fine as it requires all intention to locks be gone
 		globalLock.writeLock().lock();
 		try {
 			for (Integer ISBN : isbnSet) {
