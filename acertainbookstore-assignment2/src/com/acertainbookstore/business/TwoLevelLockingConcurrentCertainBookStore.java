@@ -55,6 +55,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 	private void ReadUnlockByISBN(Integer isbn) {
 		if (bookMap.containsKey(isbn))
 		{
+			//Unlocking should be inconsequential, therefore report if unlocking non-existing locks, but otherwise continue
 			try {
 				bookMap.get(isbn).getKey().readLock().unlock();
 			} catch (IllegalMonitorStateException ex) {
@@ -73,6 +74,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 
 	private void ReadUnlockAll() {
 		bookMap.values().forEach(entry -> {
+			//Unlocking should be inconsequential, therefore report if unlocking non-existing locks, but otherwise continue
 			try {
 				entry.getKey().readLock().unlock();
 			} catch (IllegalMonitorStateException ex) {
@@ -88,6 +90,7 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 
 	private void WriteUnlockByISBN(Integer isbn) {
 		if (bookMap.containsKey(isbn)) {
+			//Unlocking should be inconsequential, therefore report if unlocking non-existing locks, but otherwise continue
 			try {
 				bookMap.get(isbn).getKey().writeLock().unlock();
 			} catch (IllegalMonitorStateException ex) {
@@ -100,10 +103,12 @@ public class TwoLevelLockingConcurrentCertainBookStore implements BookStore, Sto
 		isbns.forEach(isbn -> WriteUnlockByISBN(isbn));
 	}
 
+	@SuppressWarnings("unused")
 	private void WriteLockAll() {
 		bookMap.values().forEach(entry -> entry.getKey().writeLock().lock());
 	}
 
+	@SuppressWarnings("unused")
 	private void WriteUnlockAll() {
 		bookMap.values().forEach(entry -> {
 			try {
