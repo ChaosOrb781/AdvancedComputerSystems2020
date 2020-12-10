@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.AbstractMap.SimpleEntry;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -48,7 +50,7 @@ public class BookStoreTest {
 	private static boolean localTest = false;
 
 	/** Single lock test */
-	private static boolean singleLock = true;
+	private static boolean singleLock = false;
 
 	/** Concurrency test variables */
 	private static Integer numberOfOperations = 1000;
@@ -887,13 +889,223 @@ public class BookStoreTest {
 			client1thread.join();
 			assertTrue(client1thread.getState() == State.TERMINATED);
 			assertTrue(client1thread.getName() == "success");
-			client2thread.join();
+			client2thread.join(); //Expect to terminate due to client1 termination
 			assertTrue(client2thread.getState() == State.TERMINATED);
 			assertTrue(client2thread.getName() == "success");
 			assertTrue(storeManager.getBooks().stream()
 				.allMatch(book1 -> 
 					originalStock.stream()
 						.anyMatch(book2 -> book1.getISBN() == book2.getISBN() && book1.getNumCopies() == book2.getNumCopies())));
+		} catch (Exception ex) {
+			fail(ex.toString());
+		}
+	}
+
+	private <T> Runnable EncapsulateConsumer(Consumer<T> consumer, T parameter) {
+		return () -> consumer.accept(parameter);
+	}
+
+	@Test
+	public void testPotentialExclusiveDeadlock() throws BookStoreException {
+
+		Integer numToAdd = 100000;
+		Set<BookCopy> restockerRequest = 
+			storeManager.getBooks().stream()
+				.map(book -> new BookCopy(book.getISBN(), 1))
+				.collect(Collectors.toSet());
+
+		List<StockBook> preBooks = storeManager.getBooks();
+
+		Consumer<Integer> restockerClient = (Integer n) -> {
+			for (int i = 0; i < n; i++) {
+				try {
+					storeManager.addCopies(restockerRequest);
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+				}
+			}
+		};
+		Thread client1Thread = new Thread(EncapsulateConsumer(restockerClient, numToAdd), "success");
+		Thread client2Thread = new Thread(EncapsulateConsumer(restockerClient, numToAdd), "success");
+
+		client1Thread.start();
+		client2Thread.start();
+
+		try {
+			//wait for both to be done
+			client1Thread.join();
+			client2Thread.join();
+			assertTrue(client1Thread.getName() == "success");
+			assertTrue(client2Thread.getName() == "success");
+			Integer i = 0;
+			for(StockBook book : storeManager.getBooks())
+			{
+				assertTrue(book.getNumCopies() == preBooks.get(i).getNumCopies() + 2*numToAdd);
+				i++;
+			}
+		} catch (Exception ex) {
+			fail(ex.toString());
+		}
+	}
+
+	@Test
+	public void testMassClientWritesReads() throws BookStoreException {
+		List<StockBook> prebooks = storeManager.getBooks();
+
+		//Client adding n books one at a time to the entire stock
+		Consumer<Integer> restockerClient = (Integer n) -> {
+			Set<BookCopy> restockerRequest = 
+				prebooks.stream()
+					.map(book -> new BookCopy(book.getISBN(), 1))
+					.filter(bookcopy -> bookcopy.getISBN() != prebooks.get(0).getISBN()
+								     && bookcopy.getISBN() != prebooks.get(1).getISBN())
+					.collect(Collectors.toSet());
+
+			for (int i = 0; i < n; i++) {
+				try {
+					storeManager.addCopies(restockerRequest);
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+					break;
+				}
+			}
+		};
+		
+		Consumer<SimpleEntry<Integer,Integer>> editorClient = (SimpleEntry<Integer,Integer> entry) -> {
+			for (int i = 0; i < entry.getKey(); i++) {
+				try {
+					client.getEditorPicks(entry.getValue());
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+					break;
+				}
+			}
+		};
+
+		Consumer<SimpleEntry<Integer,Integer>> topRatingClient = (SimpleEntry<Integer,Integer> entry) -> {
+			for (int i = 0; i < entry.getKey(); i++) {
+				try {
+					client.getTopRatedBooks(entry.getValue());
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+					break;
+				}
+			} 
+		};
+		
+		Consumer<Integer> rateBooksClient = (Integer n) -> {
+			Set<Integer> allRegisteredISBN = 
+				prebooks.stream()
+					.map(book -> book.getISBN())
+					.filter(isbn -> isbn != prebooks.get(0).getISBN()
+								 && isbn != prebooks.get(1).getISBN())
+					.collect(Collectors.toSet());
+
+			Random rnd = new Random();
+			for (int i = 0; i < n; i++) {
+				int rating = rnd.nextInt(6);
+				try {
+					client.rateBooks(allRegisteredISBN.stream().map(isbn -> new BookRating(isbn, rating)).collect(Collectors.toSet()));
+				} catch(BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+					break;
+				}
+			}
+		};
+
+		//Should LOCK entire collection, hence the other clients who reads before writing should know it.
+		Consumer<Integer> removeBook = (Integer isbn) -> {
+			Set<Integer> isbnset = new HashSet<Integer>();
+			isbnset.add(isbn);
+			try {
+				storeManager.removeBooks(isbnset);
+			} catch (BookStoreException ex) {
+				Thread.currentThread().setName(ex.toString());
+			}
+		};
+
+		Integer blockSize = 32; //Threads
+		Integer N = 1000; //Number of repeated operations
+
+		//#blockSize clients refilling N times, therefore total stock should be original + blockSize*N for each book
+		List<Thread> restockerThreads = new ArrayList<Thread>();
+		List<Thread> rateBooksThreads = new ArrayList<Thread>();
+		List<Thread> trafficThreads = new ArrayList<Thread>(); 
+		for (int i = 0; i < blockSize; i++) {
+			restockerThreads.add(new Thread(EncapsulateConsumer(restockerClient, N), "success"));
+			rateBooksThreads.add(new Thread(EncapsulateConsumer(rateBooksClient, N), "success"));
+			trafficThreads.add(new Thread(EncapsulateConsumer(editorClient, new SimpleEntry(N, 5)), "success"));
+			trafficThreads.add(new Thread(EncapsulateConsumer(topRatingClient, new SimpleEntry(N, 5)), "success"));
+		}
+
+		Thread removeDefaultBook = new Thread(EncapsulateConsumer(removeBook, prebooks.get(0).getISBN()), "success");
+		Thread removeFirstDefaultBookInCollection = new Thread(EncapsulateConsumer(removeBook, prebooks.get(1).getISBN()), "success");
+
+
+		for(int i = 0; i < blockSize; i++) {
+			restockerThreads.get(i).start();
+			rateBooksThreads.get(i).start();
+			trafficThreads.get(i*2).start();
+			trafficThreads.get(i*2 + 1).start();
+		}
+
+		try {
+			Thread.sleep(20); //Have the other threads do "some" work (by assumption)
+		} catch (Exception ex) {
+			fail(ex.toString());
+		}
+		removeDefaultBook.start();
+		try {
+			Thread.sleep(20); //Have the other threads do "some" work (by assumption)
+		} catch (Exception ex) {
+			fail(ex.toString());
+		}
+		removeFirstDefaultBookInCollection.start();
+
+		try {
+			//Wait for all transactions to be done
+			removeDefaultBook.join();
+			if (removeDefaultBook.getName() != "success") {
+				fail(removeDefaultBook.getName());
+			}
+			assertTrue(removeDefaultBook.getName() == "success");
+			removeFirstDefaultBookInCollection.join();
+			if (removeFirstDefaultBookInCollection.getName() != "success") {
+				fail(removeFirstDefaultBookInCollection.getName());
+			}
+			assertTrue(removeFirstDefaultBookInCollection.getName() == "success");
+			for(int i = 0; i < blockSize; i++) {
+				restockerThreads.get(i).join();
+				if (restockerThreads.get(i).getName() != "success") {
+					fail(i + ": " + restockerThreads.get(i).getName());
+				}
+				assertTrue(restockerThreads.get(i).getName() == "success");
+			}
+			for(int i = 0; i < blockSize; i++) {
+				rateBooksThreads.get(i).join();
+				assertTrue(rateBooksThreads.get(i).getName() == "success");
+			}
+			for(int i = 0; i < 2*blockSize; i++) {
+				trafficThreads.get(i).join();
+				assertTrue(trafficThreads.get(i).getName() == "success");
+			}
+			List<StockBook> postbooks = storeManager.getBooks();
+
+			//Post books has two less books
+			assertTrue(prebooks.size() == postbooks.size() + 2);
+			
+			//Post book is still a subset of prebooks
+			for (int i = 0; i < postbooks.size(); i++) {
+				assertTrue(prebooks.get(i+2).getISBN() == postbooks.get(i).getISBN());
+			}
+			//All post books has a blockSize * N total ratings
+			for (int i = 0; i < postbooks.size(); i++) {
+				assertTrue(postbooks.get(i).getNumTimesRated() == blockSize * N);
+			}
+			//All post books have added blockSize * N extra copies
+			for (int i = 0; i < postbooks.size(); i++) {
+				assertTrue(postbooks.get(i).getNumCopies() == prebooks.get(i+2).getNumCopies() + blockSize * N);
+			}
 		} catch (Exception ex) {
 			fail(ex.toString());
 		}
