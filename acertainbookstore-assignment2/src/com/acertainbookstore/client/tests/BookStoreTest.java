@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.lang.Thread.State;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -927,6 +928,63 @@ public class BookStoreTest {
 		};
 		Thread client1Thread = new Thread(EncapsulateConsumer(restockerClient, numToAdd), "success");
 		Thread client2Thread = new Thread(EncapsulateConsumer(restockerClient, numToAdd), "success");
+
+		client1Thread.start();
+		client2Thread.start();
+
+		try {
+			//wait for both to be done
+			client1Thread.join();
+			client2Thread.join();
+			assertTrue(client1Thread.getName() == "success");
+			assertTrue(client2Thread.getName() == "success");
+			Integer i = 0;
+			for(StockBook book : storeManager.getBooks())
+			{
+				assertTrue(book.getNumCopies() == preBooks.get(i).getNumCopies() + 2*numToAdd);
+				i++;
+			}
+		} catch (Exception ex) {
+			fail(ex.toString());
+		}
+	}
+
+	@Test
+	public void testReversePotentialExclusiveDeadlock() throws BookStoreException {
+
+		Integer numToAdd = 100000;
+		Set<BookCopy> restockerRequest = 
+			storeManager.getBooks().stream()
+				.map(book -> new BookCopy(book.getISBN(), 1))
+				.collect(Collectors.toSet());
+
+		List<StockBook> preBooks = storeManager.getBooks();
+
+		Consumer<Integer> restockerClient = (Integer n) -> {
+			for (int i = 0; i < n; i++) {
+				try {
+					storeManager.addCopies(restockerRequest);
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+				}
+			}
+		};
+
+		Consumer<Integer> restockerClientReverse = (Integer n) -> {
+			List<BookCopy> revRestockerRequest = restockerRequest.stream().collect(Collectors.toList());
+			Collections.reverse(revRestockerRequest);
+			Set<BookCopy> revRestockerRequestSet = revRestockerRequest.stream().collect(Collectors.toSet());
+			for (int i = 0; i < n; i++) {
+				try {
+					storeManager.addCopies(revRestockerRequestSet);
+				} catch (BookStoreException ex) {
+					Thread.currentThread().setName(ex.toString());
+				}
+			}
+		};
+
+		Thread client1Thread = new Thread(EncapsulateConsumer(restockerClient, numToAdd), "success");
+		Thread client2Thread = new Thread(EncapsulateConsumer(restockerClientReverse, numToAdd), "success");
 
 		client1Thread.start();
 		client2Thread.start();
