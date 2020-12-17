@@ -1,5 +1,6 @@
 package com.acertainbookstore.client.workloads;
 
+import com.acertainbookstore.client.workloads.BookSetGenerator.RangeConfig;
 import com.acertainbookstore.interfaces.BookStore;
 import com.acertainbookstore.interfaces.StockManager;
 
@@ -10,12 +11,12 @@ import com.acertainbookstore.interfaces.StockManager;
  * 
  */
 public class WorkloadConfiguration {
-	private int numBooksToBuy = 5;
-	private int numBookCopiesToBuy = 1;
-	private int numEditorPicksToGet = 10;
-	private int numAddCopies = 10;
-	private int numBooksToAdd = 5;
-	private int numBooksWithLeastCopies = 5;
+	private int numBooksToBuy = 5; //Used
+	private int numBookCopiesToBuy = 1; //Used
+	private int numEditorPicksToGet = 10; //Used
+	private int numAddCopies = 10; //Used
+	private int numBooksToAdd = 5; //Used
+	private int numBooksWithLeastCopies = 5; //Used
 	private int warmUpRuns = 100;
 	private int numActualRuns = 500;
 	private float percentRareStockManagerInteraction = 10f;
@@ -24,9 +25,13 @@ public class WorkloadConfiguration {
 	private StockManager stockManager = null;
 	private BookStore bookStore = null;
 
+	public static final RangeConfig STRINGRANGE = new RangeConfig(25, 50);
+	public static final RangeConfig COPIESRANGE = new RangeConfig(1, 25);
+	public static final float EDITORBIAS = 0.1f; //~10% are true
+
 	public WorkloadConfiguration(BookStore bookStore, StockManager stockManager) throws Exception {
 		// Create a new one so that it is not shared
-		bookSetGenerator = new BookSetGenerator();
+		bookSetGenerator = new BookSetGenerator(STRINGRANGE, COPIESRANGE, EDITORBIAS);
 		this.bookStore = bookStore;
 		this.stockManager = stockManager;
 	}

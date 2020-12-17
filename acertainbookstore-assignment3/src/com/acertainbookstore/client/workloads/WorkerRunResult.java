@@ -1,5 +1,8 @@
 package com.acertainbookstore.client.workloads;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 /**
  * 
  * WorkerRunResult class represents the result returned by a worker class after
@@ -72,4 +75,17 @@ public class WorkerRunResult {
 		this.totalFrequentBookStoreInteractionRuns = totalFrequentBookStoreInteractionRuns;
 	}
 
+
+	public String toCSV() {
+		String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("YYYY-MM-DD-HH-MM-SS"));
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append(date).append(',');
+		sb.append(successfulInteractions).append(',');
+		sb.append(elapsedTimeInNanoSecs).append(',');
+		sb.append(totalRuns).append(',');
+		sb.append(successfulFrequentBookStoreInteractionRuns).append(',');
+		sb.append(totalFrequentBookStoreInteractionRuns).append('\n');
+		return sb.toString();
+	}
 }

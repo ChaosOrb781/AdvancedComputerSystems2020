@@ -3,9 +3,19 @@
  */
 package com.acertainbookstore.client.workloads;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
+import com.acertainbookstore.business.Book;
+import com.acertainbookstore.business.BookCopy;
+import com.acertainbookstore.business.StockBook;
+import com.acertainbookstore.client.workloads.BookSetGenerator.RangeConfig;
+import com.acertainbookstore.interfaces.BookStore;
+import com.acertainbookstore.interfaces.StockManager;
 import com.acertainbookstore.utils.BookStoreException;
 
 /**
@@ -17,10 +27,10 @@ import com.acertainbookstore.utils.BookStoreException;
 public class Worker implements Callable<WorkerRunResult> {
     private WorkloadConfiguration configuration = null;
     private int numSuccessfulFrequentBookStoreInteraction = 0;
-    private int numTotalFrequentBookStoreInteraction = 0;
+	private int numTotalFrequentBookStoreInteraction = 0;
 
     public Worker(WorkloadConfiguration config) {
-	configuration = config;
+		configuration = config;
     }
 
     /**
@@ -39,14 +49,14 @@ public class Worker implements Callable<WorkerRunResult> {
 	    float percentFrequentStockManagerInteraction = configuration.getPercentFrequentStockManagerInteraction();
 
 	    if (chooseInteraction < percentRareStockManagerInteraction) {
-		runRareStockManagerInteraction();
+			runRareStockManagerInteraction();
 	    } else if (chooseInteraction < percentRareStockManagerInteraction
 		    + percentFrequentStockManagerInteraction) {
-		runFrequentStockManagerInteraction();
+			runFrequentStockManagerInteraction();
 	    } else {
-		numTotalFrequentBookStoreInteraction++;
-		runFrequentBookStoreInteraction();
-		numSuccessfulFrequentBookStoreInteraction++;
+			numTotalFrequentBookStoreInteraction++;
+			runFrequentBookStoreInteraction();
+			numSuccessfulFrequentBookStoreInteraction++;
 	    }
 	} catch (BookStoreException ex) {
 	    return false;
@@ -98,7 +108,16 @@ public class Worker implements Callable<WorkerRunResult> {
      * @throws BookStoreException
      */
     private void runRareStockManagerInteraction() throws BookStoreException {
-	// TODO: Add code for New Stock Acquisition Interaction
+		StockManager sm = configuration.getStockManager();
+		List<StockBook> stock = sm.getBooks();
+		BookSetGenerator bsg = configuration.getBookSetGenerator();
+		Set<StockBook> newBooks = bsg.nextSetOfStockBooks(configuration.getNumBooksToAdd());
+		//Filter new book set by the books not already in the stock
+		sm.addBooks(
+			newBooks.stream()
+				.filter(book1 ->
+					stock.stream().allMatch(book2 -> book2.getISBN() != book1.getISBN()))
+				.collect(Collectors.toSet()));
     }
 
     /**
@@ -107,7 +126,15 @@ public class Worker implements Callable<WorkerRunResult> {
      * @throws BookStoreException
      */
     private void runFrequentStockManagerInteraction() throws BookStoreException {
-	// TODO: Add code for Stock Replenishment Interaction
+		StockManager sm = configuration.getStockManager();
+		List<StockBook> stock = sm.getBooks();
+		//Add copies to the "k" least in stock books
+		sm.addCopies(stock.stream()
+			.sequential()
+			.sorted((x,y) -> Integer.compare(x.getNumCopies(), y.getNumCopies()))
+			.limit((long)configuration.getNumBooksWithLeastCopies())
+			.map(book -> new BookCopy(book.getISBN(), configuration.getNumAddCopies()))
+			.collect(Collectors.toSet()));
     }
 
     /**
@@ -116,7 +143,20 @@ public class Worker implements Callable<WorkerRunResult> {
      * @throws BookStoreException
      */
     private void runFrequentBookStoreInteraction() throws BookStoreException {
-	// TODO: Add code for Customer Interaction
+		BookStore bs = configuration.getBookStore();
+		BookSetGenerator bsg = configuration.getBookSetGenerator();
+		List<Book> books = bs.getEditorPicks(configuration.getNumEditorPicksToGet());
+		if (books.size() > 0) {
+			int subsetSize = configuration.getNumBooksToBuy();
+			Set<Integer> buySet = bsg.sampleFromSetOfISBNs(
+				books.stream()
+				.map(book -> book.getISBN())
+				.collect(Collectors.toSet()),
+				subsetSize);
+			bs.buyBooks(buySet.stream()
+				.map(isbn -> new BookCopy(isbn, configuration.getNumBookCopiesToBuy()))
+				.collect(Collectors.toSet()));
+		}
     }
 
 }
