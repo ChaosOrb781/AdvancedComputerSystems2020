@@ -36,9 +36,10 @@ import com.acertainbookstore.utils.BookStoreException;
  */
 public class CertainWorkload {
 
-	private static int UniqueBooks = 1000;
+	private static int UniqueBooks = 250;
 	private static String serverAddress = "http://localhost:8081";
-	private static int[] threadsToTest = new int[] {1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32};
+	private static int[] threadsToTest = new int[] {1,2,3,4,5,6,7,8};
+	//private static int[] threadsToTest = new int[] {1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32};
 	private static boolean localTest = true;
 
 	/**
@@ -102,7 +103,7 @@ public class CertainWorkload {
 			((StockManagerHTTPProxy) stockManager).stop();
 		}
 
-		reportMetric(workerRunResults, numConcurrentWorkloadThreads);
+		reportMetric(workerRunResults, localTest, numConcurrentWorkloadThreads);
 	}
 
 	/**
@@ -110,10 +111,10 @@ public class CertainWorkload {
 	 * 
 	 * @param workerRunResults
 	 */
-	public static void reportMetric(List<WorkerRunResult> workerRunResults, int numberOfThreads) throws IOException {
+	public static void reportMetric(List<WorkerRunResult> workerRunResults, boolean localTest, int numberOfThreads) throws IOException {
 		// TODO: You should aggregate metrics and output them for plotting here
 		Path currentPath = Paths.get("").toAbsolutePath();
-		String batchName = "BatchResults" + (localTest ? "Local" : "Server") + ".csv";
+		String batchName = "BatchResults.csv";
 		File batchFile = Paths.get(currentPath.toString(), batchName).toFile();
 		FileWriter fw = null;
 		if (!batchFile.exists()) {
@@ -130,12 +131,12 @@ public class CertainWorkload {
 		}
 		fw.close();
 
-		String metricName = "MetricResults" + (localTest ? "Local" : "Server") + ".csv";
+		String metricName = "MetricResults.csv";
 		File metricFile = Paths.get(currentPath.toString(), metricName).toFile();
 		if (!metricFile.exists()) {
 			metricFile.createNewFile();
 			fw = new FileWriter(metricFile, true);
-			fw.append("batchid,date,initialBookCount,numberOfThreads,frequentPercent,totalTime,avgSuccessRate,aggThroughput,avgThroughput,stdThroughput,aggGoodput,avgGoodput,stdGoodput,aggDiffput,avgDiffput,stdDiffput,aggLatency,avgLatency,stdLatency\n");
+			fw.append("batchid,date,localTest,initialBookCount,numberOfThreads,frequentPercent,totalTime,avgSuccessRate,aggThroughput,avgThroughput,stdThroughput,aggGoodput,avgGoodput,stdGoodput,aggDiffput,avgDiffput,stdDiffput,aggLatency,avgLatency,stdLatency\n");
 		} else {
 			fw = new FileWriter(metricFile, true);
 		}
@@ -195,6 +196,7 @@ public class CertainWorkload {
 		StringBuilder sb = new StringBuilder();
 		sb.append(batch).append(',');
 		sb.append(date).append(',');
+		sb.append(localTest).append(',');
 		sb.append(UniqueBooks).append(',');
 		sb.append(numberOfThreads).append(',');
 		sb.append(frequentPercent * 100).append(',');
